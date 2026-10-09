@@ -27,6 +27,7 @@ if not exist "%~dp0workspace" mkdir "%~dp0workspace"
 echo Starting ZCode Web at http://127.0.0.1:%PORT%/
 echo Workspace: %~dp0workspace
 echo Keep this window open; press Ctrl+C here to stop.
-start "" http://127.0.0.1:%PORT%/
+rem No explicit browser launch here: zcode.mjs opens it once the server
+rem is actually ready, avoiding a duplicate tab and a blank first load.
 call node "%~dp0zcode\bin\zcode.mjs" --web --workspace "%~dp0workspace" --port %PORT%
 pause
