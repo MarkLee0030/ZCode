@@ -2,9 +2,14 @@
 import { loadEndpointEnv } from "./load-endpoint-env.mjs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { chmod, cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import {
+  quoteArgsForWindowsShell,
+  resolveSpawnRuntimeOptions,
+} from "./spawn-command.mjs";
 import {
   copyRuntimeNodeModules,
   patchNodePtyPrebuilds,
@@ -14,6 +19,14 @@ import { installScriptSource } from "./zcode-distribution/installer.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const defaultOutDir = resolve(root, "dist", "zcode");
+// Windows 上 Git Bash 的 GNU tar 会把 `D:\...` 的冒号解释为远程主机；
+// 优先使用系统自带 bsdtar（Win10 1809+），其 -czf/-C 行为与 GNU tar 兼容。
+const windowsBsdTar =
+  process.platform === "win32"
+    ? resolve(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
+    : undefined;
+const tarCommand =
+  windowsBsdTar && existsSync(windowsBsdTar) ? windowsBsdTar : "tar";
 const defaultBaseUrl = (await loadEndpointEnv()).ZCODE_DIST_BASE_URL?.trim() || "";
 const packageDirName = "zcode";
 const usage = `Usage:
@@ -28,6 +41,10 @@ Options:
   --version <text>    Release version. Defaults to root package.json version.
   --out-dir <path>    Output directory. Defaults to dist/zcode.
   --base-url <url>    Default install.sh download base URL.
+  --no-tui            Skip staging the terminal TUI runtime assets. Web mode
+                      (zcode --web) does not load them; @zcode/shared is a
+                      source-only workspace package without dist, which fails
+                      the SEA asset collector on a clean checkout.
   --help, -h          Show this help.
 `;
 
@@ -52,6 +69,7 @@ function parseArgs(argv) {
   const options = {
     baseUrl: defaultBaseUrl,
     help: false,
+    noTui: false,
     outDir: defaultOutDir,
     skipBuild: false,
     version: undefined,
@@ -68,6 +86,10 @@ function parseArgs(argv) {
     }
     if (arg === "--skip-build") {
       options.skipBuild = true;
+      continue;
+    }
+    if (arg === "--no-tui") {
+      options.noTui = true;
       continue;
     }
     if (arg === "--version" || arg.startsWith("--version=")) {
@@ -100,10 +122,15 @@ function commandText(command, args) {
 
 function run(command, args, options = {}) {
   console.log(`[zcode] ${commandText(command, args)}`);
-  const result = spawnSync(command, args, {
+  // Windows 上 bare `pnpm` 经 cmd shim 提供，无 shell 的 spawnSync 无法解析；
+  // 复用 spawn-command.mjs 的 win32 处理（保留命令名 + shell 解析 + 空格参数加引号）。
+  const runtimeOptions = resolveSpawnRuntimeOptions(command);
+  const spawnArgs = runtimeOptions.shell ? quoteArgsForWindowsShell(args) : args;
+  const result = spawnSync(command, spawnArgs, {
     cwd: root,
     stdio: "inherit",
     ...options,
+    ...runtimeOptions,
   });
   if (result.error) {
     throw new Error(`${commandText(command, args)} failed: ${result.error.message}`, {
@@ -154,7 +181,7 @@ async function buildOutputs(skipBuild) {
   run("pnpm", ["--filter", "@zcode/web", "build"]);
 }
 
-async function stageZCodePackage({ packageRoot, version }) {
+async function stageZCodePackage({ packageRoot, version, includeTuiRuntime = true }) {
   const webDist = resolve(root, "packages", "web", "dist");
   const serverDist = resolve(root, "packages", "server", "dist");
   const agentBundle = resolve(root, "apps", "zcode-cli", "packages", "cli", "dist", "zcode.cjs");
@@ -192,7 +219,9 @@ async function stageZCodePackage({ packageRoot, version }) {
   );
   await chmod(resolve(packageRoot, "agent", "zcode.cjs"), 0o755);
 
-  await stageTuiRuntime(packageRoot);
+  if (includeTuiRuntime) {
+    await stageTuiRuntime(packageRoot);
+  }
   await copyRuntimeNodeModules(packageRoot);
   await patchNodePtyPrebuilds(packageRoot);
 
@@ -226,7 +255,7 @@ async function createTarball({ packageParent, releaseDir, tarballName }) {
   await rm(tarball, {
     force: true,
   });
-  run("tar", ["-czf", tarball, "-C", packageParent, packageDirName]);
+  run(tarCommand, ["-czf", tarball, "-C", packageParent, packageDirName]);
   return tarball;
 }
 
@@ -261,6 +290,7 @@ async function main() {
   await stageZCodePackage({
     packageRoot,
     version,
+    includeTuiRuntime: !options.noTui,
   });
   const tarball = await createTarball({
     packageParent,
