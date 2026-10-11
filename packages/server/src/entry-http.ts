@@ -15,18 +15,17 @@ async function main(): Promise<void> {
   const staticRoot = process.env["ZCODE_WEB_STATIC_ROOT"]?.trim() || undefined;
   const authToken = process.env["ZCODE_SERVER_AUTH_TOKEN"]?.trim() || undefined;
   // Web 形态此前没有 cron 触发侧（桌面由 Electron utilityProcess scheduler 承载），
-  // automations 只能建不能跑。这里在本进程内启动调度循环补上触发；manual「立即运行」
-  // 的直发钩子同步注入，否则 runAutomationNow 会抛 dispatcher unavailable。
-  const webCronScheduler = startWebCronScheduler({
-    services: { getOptional: () => undefined },
-  });
+  // automations 只能建不能跑。调度循环在本进程内补上触发；manual「立即运行」的
+  // 直发钩子经闭路引用注入（hook 只会来自启动后的 RPC，届时 scheduler 必已赋值）。
+  let webCronScheduler: ReturnType<typeof startWebCronScheduler> | undefined;
   const services = createLocalServices({
     zcodeBuiltinProviderConfigFilePath,
     providerProvisioningTargetEnabled: Boolean(authToken),
-    onAutomationManualRunRequested: (params) => webCronScheduler.dispatchManualRun(params),
+    onAutomationManualRunRequested: (params) => webCronScheduler?.dispatchManualRun(params),
   });
-  // 调度器创建时 services 尚未装配；拿到实例后再补上任务服务解析。
-  webCronScheduler.attachServices(services);
+  // 必须在 createLocalServices 之后启动：services 装配失败时进程能自然退出，
+  // 而不是留下一个只剩调度循环的不死进程反复派发失败。
+  webCronScheduler = startWebCronScheduler({ services });
 
   createHttpServer(services, port, {
     ...(host ? { host } : {}),
@@ -34,8 +33,10 @@ async function main(): Promise<void> {
     ...(authToken ? { authToken, authRequired: true } : {}),
   });
 
+  // 注册了信号处理器会抑制 Node 默认退出，而 HTTP server 持续占用事件循环；
+  // 这里必须主动收尾退出，否则 Ctrl+C / docker stop 后进程变孤儿。
   const shutdown = () => {
-    void webCronScheduler.stop();
+    void webCronScheduler?.stop().finally(() => process.exit(0));
   };
   process.once("SIGINT", shutdown);
   process.once("SIGTERM", shutdown);

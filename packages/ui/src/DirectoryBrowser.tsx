@@ -18,7 +18,8 @@ function getParentDirectoryPath(path: string): string | null {
     if (parts.length <= 2) return null;
   }
   const parent = normalized.replace(/\/[^/]+\/?$/, "");
-  if (!parent) return null;
+  // POSIX 一级目录（如 /home）回根；Windows 路径不会算出空串（盘符前缀兜底）。
+  if (!parent) return "/";
   const driveMatch = /^([a-zA-Z]):$/.exec(parent);
   if (driveMatch) return `${driveMatch[1]}:/`;
   return parent;

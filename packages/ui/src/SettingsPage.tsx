@@ -667,18 +667,19 @@ export function SettingsPage({
   const localHostServices = useBaseWorkspaceServices();
   // Web 端 platform.selectDirectory 是返回 null 的桩；数据目录 Browse 需要一个
   // 服务端目录浏览器兜底，这里用 Promise resolver 把弹窗结果接回调用方。
+  // 按平台能力分支而非按 null 兜底：桌面端用户取消原生对话框也返回 null，
+  // 不能把「取消」误判成「无原生选择器」再弹一个应用内浏览器。
   const [dataBaseDirPickerOpen, setDataBaseDirPickerOpen] = useState(false);
   const dataBaseDirPickerResolveRef = useRef<((path: string | null) => void) | null>(null);
   const handleSelectDataBaseDir = useCallback(async (): Promise<string | null> => {
-    const nativePicked = await selectDirectory();
-    if (nativePicked) {
-      return nativePicked;
+    if (platform.canSelectFilePath !== false) {
+      return await selectDirectory();
     }
     return new Promise((resolve) => {
       dataBaseDirPickerResolveRef.current = resolve;
       setDataBaseDirPickerOpen(true);
     });
-  }, [selectDirectory]);
+  }, [platform.canSelectFilePath, selectDirectory]);
   const { settings: sharedSettings, update: updateSharedSettings } = useSettings();
   const memoryWorkspaceDisplayNames = useMemo(() => {
     const names = new Set<string>();

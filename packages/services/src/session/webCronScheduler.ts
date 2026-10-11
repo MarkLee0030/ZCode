@@ -62,9 +62,6 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
   const log = options.log ?? defaultLog;
   const repo = new AutomationRepo();
   const inFlight = new Map<string, InFlight>();
-  // entry-http 里 services 在 createLocalServices 之后才装配；调度器先启动，
-  // 装配完成后通过 attachServices 补上解析源（认领循环在首个 20s tick 前拿到即可）。
-  let serviceResolver: Pick<ServiceCollection, "getOptional"> = options.services;
 
   let ticking = false;
   let tickRequested = false;
@@ -73,7 +70,7 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   const getTaskService = (): IZCodeTaskService | undefined =>
-    serviceResolver.getOptional(IZCodeTaskService);
+    options.services.getOptional(IZCodeTaskService);
 
   function buildRunId(automationId: string, scheduledAt: number): string {
     return `${automationId}:${scheduledAt}`;
@@ -96,21 +93,21 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
     if (!taskService) {
       return { ok: false, error: "ZCode task service is not initialized." };
     }
-    const submissionSelection =
-      fixedSelection ?? automation.modelSelection ??
-      await repo
-        .getModelSelectionForDispatch(
+    try {
+      // 模型解析在 try 内：getRepo 抛错（如配置损坏）转成 ok:false 走 transient
+      // 重试，不能炸掉整个 tick 循环连累同批已认领任务。
+      const submissionSelection =
+        fixedSelection ?? automation.modelSelection ??
+        await repo.getModelSelectionForDispatch(
           automation.automationId,
           resolveWorkspaceKey({
             workspacePath: automation.workspacePath,
             workspaceIdentity: automation.workspaceIdentity,
           }),
-        )
-        .catch(() => undefined);
-    if (submissionSelection) {
-      await repo.fixRunModelSelection(runId, submissionSelection);
-    }
-    try {
+        );
+      if (submissionSelection) {
+        await repo.fixRunModelSelection(runId, submissionSelection);
+      }
       let taskId: string;
       if (automation.targetTaskId) {
         await taskService.resumeTask({
@@ -195,12 +192,18 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
           sessionId: params.result.sessionId ?? null,
           dispatchedAt: now,
         });
-        await settleManualClaimForDispatchResult({
-          automationId,
-          runId: params.runId,
-          workspaceKey,
-          ok: true,
-        });
+        // 桌面版靠 turn 终态订阅 + 心跳释放 manual 锁；web 版没有终态回执，
+        // 若沿用「成功不释放」会把锁占满 CLAIM_STALE_MS(10min)，期间挡住
+        // scheduled 认领并让紧跟的触发落入 misfire。这里在派发成功后立即
+        // 归还认领，代价是失去「manual turn 进行中防重复点按」保护（初版
+        // 可接受：与 scheduled 双实例并存的既有风险同级）。
+        const manualWorkspaceKey =
+          workspaceKey ??
+          (await repo.getRun(params.runId).then((run) => run?.workspaceKey)) ??
+          (await repo.get(automationId).then((automation) => automation?.workspaceKey));
+        if (manualWorkspaceKey) {
+          await repo.releaseManualClaim(automationId, manualWorkspaceKey);
+        }
         return;
       }
       await repo.markRunDispatch({
@@ -290,7 +293,7 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
   async function handleClaimedManual(
     automation: ZCodeAutomation,
     run: ZCodeAutomationRun,
-  ): Promise<void> {
+  ): Promise<{ ok: true; sessionId?: string } | { ok: false; error: string }> {
     inFlight.set(run.runId, {
       automationId: automation.automationId,
       workspaceKey: resolveWorkspaceKey({
@@ -301,6 +304,7 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
     });
     const result = await dispatchCronRun(automation, run.runId, run.modelSelection);
     await settleDispatchResult({ runId: run.runId, result });
+    return result;
   }
 
   async function tick(): Promise<void> {
@@ -313,11 +317,28 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
           const now = Date.now();
           const claimed = await repo.claimDue(now);
           for (const automation of claimed) {
-            await handleClaimed(automation, now);
+            // per-item 隔离：单个 automation 的派发/结算异常不能连累同批
+            // 已认领的其他任务（认领后 10 分钟无人结算会被 stale 回收并
+            // 大概率落入 misfire-skip，等于丢一整批触发）。
+            try {
+              await handleClaimed(automation, now);
+            } catch (error) {
+              log(
+                "error",
+                `handleClaimed failed automation=${automation.automationId}: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
           }
           const manualRuns = await repo.claimManualRuns(now);
           for (const manualRun of manualRuns) {
-            await handleClaimedManual(manualRun.automation, manualRun.run);
+            try {
+              await handleClaimedManual(manualRun.automation, manualRun.run);
+            } catch (error) {
+              log(
+                "error",
+                `handleClaimedManual failed automation=${manualRun.automation.automationId}: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
           }
         } catch (error) {
           log("error", `tick failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -342,9 +363,13 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
     run: ZCodeAutomationRun;
   }): Promise<void> {
     if (disposed) return;
-    await handleClaimedManual(params.automation, params.run);
+    // 派发失败必须向调用方抛错（对齐桌面直发路径的 rethrow），否则
+    // runAutomationNow 静默返回 queued，用户误以为已触发。
+    const result = await handleClaimedManual(params.automation, params.run);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
   }
-
   async function stop(): Promise<void> {
     if (disposed) return;
     disposed = true;
@@ -385,11 +410,5 @@ export function startWebCronScheduler(options: WebCronSchedulerOptions): {
     }
   })();
 
-  return {
-    stop,
-    dispatchManualRun,
-    attachServices(services: Pick<ServiceCollection, "getOptional">): void {
-      serviceResolver = services;
-    },
-  };
+  return { stop, dispatchManualRun };
 }
