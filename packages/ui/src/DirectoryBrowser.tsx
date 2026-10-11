@@ -7,6 +7,23 @@ import { Input } from "./components/ui/input.js";
 import { useZCodeIntl } from "./i18n/IntlProvider.js";
 import { logger } from "./logger.js";
 
+// 服务端可能返回 POSIX 或 Windows 风格路径（node fs 两种都接受），这里统一按
+// 正斜杠计算父目录，并识别盘符根 / UNC 共享根，避免在根目录上继续显示 ".."。
+function getParentDirectoryPath(path: string): string | null {
+  if (!path || path === "/") return null;
+  if (/^[a-zA-Z]:[\\/]?$/.test(path)) return null;
+  const normalized = path.replace(/\\/g, "/");
+  if (normalized.startsWith("//")) {
+    const parts = normalized.split("/").filter(Boolean);
+    if (parts.length <= 2) return null;
+  }
+  const parent = normalized.replace(/\/[^/]+\/?$/, "");
+  if (!parent) return null;
+  const driveMatch = /^([a-zA-Z]):$/.exec(parent);
+  if (driveMatch) return `${driveMatch[1]}:/`;
+  return parent;
+}
+
 function createDirectoryBrowserReadParams(
   path: string,
   showHiddenDirectories: boolean,
@@ -122,8 +139,10 @@ export function DirectoryBrowser({
 
   const handleGoUp = () => {
     // 提取父目录路径
-    const parent = currentPath.replace(/\/[^/]+\/?$/, "") || "/";
-    navigateTo(parent);
+    const parent = getParentDirectoryPath(currentPath);
+    if (parent && parent !== currentPath) {
+      navigateTo(parent);
+    }
   };
 
   const handleInputSubmit = (e: React.FormEvent) => {
@@ -210,7 +229,7 @@ export function DirectoryBrowser({
         className="flex-1 flex flex-col overflow-y-auto rounded-lg border border-border bg-background"
       >
         {/* 上级目录 */}
-        {currentPath && currentPath !== "/" ? (
+        {getParentDirectoryPath(currentPath) !== null ? (
           <button
             onClick={handleGoUp}
             // 滚动容器是纵向 flex 布局，子项默认允许 shrink；

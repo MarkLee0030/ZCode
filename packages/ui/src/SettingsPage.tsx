@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ButtonHTMLAttributes,
   type ReactNode,
@@ -85,6 +86,7 @@ import { useTabStore } from "@/store/TabStoreProvider.js";
 import { isWorkspaceTab } from "@/store/tabStore.js";
 import type { Theme } from "@/useTheme.js";
 import { WindowsTopLeftLogo } from "@/WindowsTopLeftLogo.js";
+import { DirectoryBrowser } from "@/DirectoryBrowser.js";
 
 import { DesktopWindowControls } from "@/DesktopWindowControls.js";
 import { WorkspaceHelpMenuButton } from "@/WorkspaceHelpMenuButton.js";
@@ -663,6 +665,20 @@ export function SettingsPage({
   const services = useServices();
   const onboardingRecordService = services.onboardingRecordService;
   const localHostServices = useBaseWorkspaceServices();
+  // Web 端 platform.selectDirectory 是返回 null 的桩；数据目录 Browse 需要一个
+  // 服务端目录浏览器兜底，这里用 Promise resolver 把弹窗结果接回调用方。
+  const [dataBaseDirPickerOpen, setDataBaseDirPickerOpen] = useState(false);
+  const dataBaseDirPickerResolveRef = useRef<((path: string | null) => void) | null>(null);
+  const handleSelectDataBaseDir = useCallback(async (): Promise<string | null> => {
+    const nativePicked = await selectDirectory();
+    if (nativePicked) {
+      return nativePicked;
+    }
+    return new Promise((resolve) => {
+      dataBaseDirPickerResolveRef.current = resolve;
+      setDataBaseDirPickerOpen(true);
+    });
+  }, [selectDirectory]);
   const { settings: sharedSettings, update: updateSharedSettings } = useSettings();
   const memoryWorkspaceDisplayNames = useMemo(() => {
     const names = new Set<string>();
@@ -1723,7 +1739,7 @@ export function SettingsPage({
                             }
                             modelIoFullRetentionEnabled={modelIoFullRetentionEnabled}
                             onDataBaseDirChange={handleDataBaseDirChange}
-                            onSelectDataBaseDir={selectDirectory}
+                            onSelectDataBaseDir={handleSelectDataBaseDir}
                             onTerminalInheritSystemProfileChange={
                               handleTerminalInheritSystemProfileChange
                             }
@@ -1957,6 +1973,21 @@ export function SettingsPage({
           </section>
         </div>
       </DesktopWindowFrame>
+      {dataBaseDirPickerOpen ? (
+        <DirectoryBrowser
+          services={localHostServices}
+          onSelect={(path) => {
+            setDataBaseDirPickerOpen(false);
+            dataBaseDirPickerResolveRef.current?.(path);
+            dataBaseDirPickerResolveRef.current = null;
+          }}
+          onCancel={() => {
+            setDataBaseDirPickerOpen(false);
+            dataBaseDirPickerResolveRef.current?.(null);
+            dataBaseDirPickerResolveRef.current = null;
+          }}
+        />
+      ) : null}
     </>
   );
 }
