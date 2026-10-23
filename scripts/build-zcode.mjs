@@ -189,6 +189,10 @@ async function stageZCodePackage({ packageRoot, version, includeTuiRuntime = tru
 
   await assertDirectory(webDist, "web dist");
   await assertDirectory(serverDist, "server dist");
+  await assertDirectory(
+    resolve(root, "packages", "server", "gen-ui-assets"),
+    "Gen UI runtime assets",
+  );
   await assertFile(resolve(serverDist, "entry-http.js"), "server HTTP entry");
   await assertFile(agentBundle, "agent app-server bundle");
   await assertFile(resolve(agentProvider, "zcode-builtin.json"), "Agent provider config");
@@ -205,6 +209,11 @@ async function stageZCodePackage({ packageRoot, version, includeTuiRuntime = tru
     recursive: true,
   });
   await cp(serverDist, resolve(packageRoot, "server"), {
+    recursive: true,
+  });
+  // Gen UI guest 运行时资产：server 的 entry-http.js 按 `../gen-ui-assets` 相对自身
+  // 解析（与 dev 态 dist 相对路径一致），发行包必须与 server/ 同级带上一份。
+  await cp(resolve(root, "packages", "server", "gen-ui-assets"), resolve(packageRoot, "gen-ui-assets"), {
     recursive: true,
   });
   await mkdir(resolve(packageRoot, "agent"), {
