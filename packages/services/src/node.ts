@@ -3229,6 +3229,8 @@ export async function createServerHostServices(options: {
   onAutomationManualRunRequested?: NonNullable<
     Parameters<typeof createLocalServices>[0]
   >["onAutomationManualRunRequested"];
+  /** web server 宿主注入：Gen UI 沙箱登记（HTTP 路由承载，等价桌面 main 的 pluginSandbox host）。 */
+  registerPluginSandbox?: NonNullable<Parameters<typeof createLocalServices>[0]>["registerPluginSandbox"];
 }) {
   const projectStorageHostId = remoteHostIdFromWorkspaceIdentity(
     buildServerRemoteWorkspaceIdentity({ serverId: options.sourceServerId, workspacePath: "/" }),
@@ -3259,6 +3261,7 @@ export async function createServerHostServices(options: {
     projectStorageHostId,
     sourceServerWorkspaceService,
     onAutomationManualRunRequested: options.onAutomationManualRunRequested,
+    registerPluginSandbox: options.registerPluginSandbox,
   });
   return { services, workspaceIdentityMapper, migrationFailedPathCount };
 }

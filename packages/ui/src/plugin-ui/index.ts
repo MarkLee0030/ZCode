@@ -2,6 +2,8 @@ export * from "./contract.js";
 export { PluginUiBackgroundHost } from "./adapters/PluginUiBackgroundHost.js";
 export { createPluginUiMessagePortTransport } from "./adapters/messagePortTransport.js";
 export { createPluginUiPagePlane } from "./adapters/pluginUiPagePlane.js";
+export { setPluginUiFrameFactory } from "./adapters/pluginUiPagePlane.js";
+export { createWebPluginSandbox } from "./adapters/webPluginSandbox.js";
 export { readPluginUiStyleVariables } from "./adapters/readPluginUiStyleVariables.js";
 export { getPluginUiSessionActions } from "./adapters/pluginUiSessionActions.js";
 export { PluginUiToolCallBlock, shouldRenderPluginUi } from "./PluginUiToolCallBlock.js";

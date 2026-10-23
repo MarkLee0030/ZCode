@@ -11,7 +11,10 @@
     "./source-server/*.js": "./src/source-server/*.ts"
   },
   "scripts": {
+    "build:gen-ui-assets": "node scripts/build-gen-ui-assets.mjs",
+    "predev": "node scripts/build-gen-ui-assets.mjs",
     "dev": "tsup --watch --onSuccess 'node dist/entry-http.js'",
+    "prebuild": "node scripts/build-gen-ui-assets.mjs",
     "build": "tsup && pnpm run build:remote",
     "build:remote": "tsx build-remote.ts",
     "lint": "oxlint",

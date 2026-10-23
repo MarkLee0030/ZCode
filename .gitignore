@@ -75,3 +75,4 @@ packages/desktop/resources/macos-window-bounds/
 __pycache__/
 *.pyc
 .zcode-runtime
+packages/server/gen-ui-assets/

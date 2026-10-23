@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { useOptionalPlatform } from "@/hooks/usePlatform.js";
 
 export function DataBaseDirControl({
   dataBaseDir,
@@ -24,9 +23,6 @@ export function DataBaseDirControl({
   onSelectDataBaseDir: () => Promise<string | null>;
 }) {
   const { intl } = useZCodeIntl();
-  // 桌面端保持只接受原生目录弹窗返回的真实路径；无原生选择器的平台（web）
-  // 放开手输，否则 Save 永远不可达。错误路径由服务端 updateDataBaseDir 校验兜底。
-  const hasNativeDirectoryPicker = useOptionalPlatform()?.canSelectFilePath === true;
   const effectiveDir = dataBaseDir || defaultHomeDir;
   const [localDataBaseDir, setLocalDataBaseDir] = useState(effectiveDir);
   const [isPickingDataBaseDir, setIsPickingDataBaseDir] = useState(false);
@@ -87,17 +83,7 @@ export function DataBaseDirControl({
           size="lg"
           data-testid={TID_SETTINGS_DATA_BASE_DIR_INPUT}
           value={localDataBaseDir}
-          onChange={
-            hasNativeDirectoryPicker
-              ? undefined
-              : (e) => {
-                  setLocalDataBaseDir(e.target.value);
-                  if (saveState !== "idle") {
-                    setSaveState("idle");
-                  }
-                }
-          }
-          readOnly={hasNativeDirectoryPicker}
+          readOnly
           disabled={isSaving || isPickingDataBaseDir}
           placeholder={intl.formatMessage({ id: "settings.dataBaseDirPlaceholder" })}
           className="flex-1 font-mono"

@@ -20,6 +20,10 @@ import {
 import type { TopicResourcePeers } from "@zcode/services/node";
 import { TOPIC_RESOURCE_RELAY_CHANNEL } from "@zcode/shared";
 import {
+  WEB_GEN_UI_PERMISSIONS_POLICY,
+  type WebGenUiSandboxHost,
+} from "./genUiWebSandbox.js";
+import {
   ServiceCollection,
   IZCodeAgentService,
   createZCodeAgentConnectionScope,
@@ -152,6 +156,8 @@ export interface HttpServerOptions {
   spaFallback?: boolean;
   staticRoot?: string;
   workspaces?: ServerRemoteWorkspaceInfo[];
+  /** Web 形态 Gen UI 沙箱宿主；提供时挂载 /api/plugin-sandbox/:id 路由。 */
+  genUiSandbox?: WebGenUiSandboxHost;
 }
 
 function readTrimmedEnv(name: string): string | undefined {
@@ -446,6 +452,40 @@ export function createHttpServer(
 
   app.post("/api/bots/:provider", handleBotCallback);
   app.post("/api/bots/:provider/:botId", handleBotCallback);
+
+  // Web Gen UI 沙箱：文档与 guest 运行时走 /api/* 前缀，随现有 token 鉴权中间件保护
+  // （iframe 同源加载会带上 HttpOnly cookie）。
+  if (options.genUiSandbox) {
+    const genUiSandbox = options.genUiSandbox;
+    app.get("/api/plugin-sandbox/:sandboxId/__zcode__/:file", async (c) => {
+      const file = c.req.param("file");
+      const served = await genUiSandbox
+        .serveRuntimeFile(c.req.param("sandboxId"), file)
+        .catch(() => null);
+      if (!served) return c.notFound();
+      return c.body(served.body, 200, {
+        "Content-Type": served.contentType,
+        // 与桌面同构：runtime 资源按沙箱 CSP 下发，杜绝被第三方页直接引用。
+        "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-cache",
+      });
+    });
+    app.get("/api/plugin-sandbox/:sandboxId", (c) =>
+      c.redirect(`/api/plugin-sandbox/${c.req.param("sandboxId")}/index.html`),
+    );
+    app.get("/api/plugin-sandbox/:sandboxId/index.html", async (c) => {
+      const served = await genUiSandbox.serveDocument(c.req.param("sandboxId"));
+      if (!served) return c.notFound();
+      return c.body(served.html, 200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Security-Policy": served.cspHeader,
+        "Permissions-Policy": WEB_GEN_UI_PERMISSIONS_POLICY,
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-cache",
+      });
+    });
+  }
 
   // Bug 原因：旧 `/api/connect-remote` + `/ws/remote/:id` 会在 Server 内另起临时 stdio
   // runtime，绕过 R3 的 Window Host → Source Server attachment 主链；两个入口必须一起不可达。

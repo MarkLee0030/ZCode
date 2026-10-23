@@ -2,6 +2,21 @@ import { autoUpdate } from "@floating-ui/dom";
 import type { PluginSandboxHandle } from "@zcode/shared/mcp-apps";
 import type { SandboxPagePlacement } from "../contract.js";
 
+/**
+ * 沙箱视图元素工厂：桌面默认 <webview>（Electron），web 宿主注入 iframe 工厂
+ * （见 webPluginSandbox.ts）。工厂在 mount 时同步调用，返回的元素只承担加载与
+ * 输入接收；定位、可见性与生命周期仍由 plane 统一管理。
+ */
+type SandboxFrameElement = HTMLElement & { connectedMoveCallback?: unknown };
+let frameFactory: ((handle: PluginSandboxHandle) => SandboxFrameElement) | null = null;
+
+/** web 宿主启动时注入 iframe 工厂；传 null 恢复桌面 webview 行为。 */
+export function setPluginUiFrameFactory(
+  factory: ((handle: PluginSandboxHandle) => SandboxFrameElement) | null,
+): void {
+  frameFactory = factory;
+}
+
 function parkingRoot(): HTMLElement {
   const existing = document.querySelector<HTMLElement>("[data-sandbox-page-parking]");
   if (existing) return existing;
@@ -179,6 +194,20 @@ export function createPluginUiPagePlane(events: {
     frame = null;
     handleId = null;
   };
+  const createWebviewFrame = (handle: PluginSandboxHandle): HTMLElement => {
+    const webview = document.createElement("webview");
+    webview.setAttribute("data-zcode-retained-sandbox", "");
+    webview.setAttribute("src", handle.shellUrl);
+    webview.setAttribute("partition", handle.partition);
+    webview.setAttribute("data-testid", "plugin-ui-webview");
+    webview.style.cssText =
+      "display:flex;width:100%;height:100%;border:0;background:transparent;pointer-events:auto";
+    webview.addEventListener("render-process-gone", events.onCrash);
+    webview.addEventListener("dom-ready", ready);
+    webview.addEventListener("did-frame-finish-load", frameReady);
+    webview.addEventListener("did-start-navigation", navigation);
+    return webview;
+  };
   return {
     setExecutionActive(active: boolean) {
       if (executionActive === active) return;
@@ -233,17 +262,7 @@ export function createPluginUiPagePlane(events: {
       if (handleId === handle.sandboxId) return;
       unmount();
       handleId = handle.sandboxId;
-      frame = document.createElement("webview");
-      frame.setAttribute("data-zcode-retained-sandbox", "");
-      frame.setAttribute("src", handle.shellUrl);
-      frame.setAttribute("partition", handle.partition);
-      frame.setAttribute("data-testid", "plugin-ui-webview");
-      frame.style.cssText =
-        "display:flex;width:100%;height:100%;border:0;background:transparent;pointer-events:auto";
-      frame.addEventListener("render-process-gone", events.onCrash);
-      frame.addEventListener("dom-ready", ready);
-      frame.addEventListener("did-frame-finish-load", frameReady);
-      frame.addEventListener("did-start-navigation", navigation);
+      frame = frameFactory?.(handle) ?? createWebviewFrame(handle);
       root.append(frame);
     },
     prepareUnmount,

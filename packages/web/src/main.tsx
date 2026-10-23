@@ -17,6 +17,7 @@ import {
   ensurePendingTaskDraft,
   Root,
   ZCodeIntlProvider,
+  createWebPluginSandbox,
   generateMobileDeviceFingerprint,
   installDocumentHiddenMotionPause,
   playTaskNotificationSound,
@@ -452,6 +453,9 @@ function toWebRemoteControlFailure(
   return { reason, message };
 }
 
+/** Gen UI web 沙箱单例：module 级创建一次，同时把 iframe 工厂注入共享 page plane。 */
+const webGenUiSandbox = createWebPluginSandbox();
+
 function createWebPlatform(options?: {
   externalWebRemoteControlProxy?: WebRemoteControlPlatformProxy;
 }): IPlatformService {
@@ -460,6 +464,10 @@ function createWebPlatform(options?: {
   return {
     canSelectFilePath: false,
     canOpenLocalFiles: false,
+    // Gen UI 沙箱只在普通 web 模式挂载：server 提供 /api/plugin-sandbox HTTP 承载。
+    // 手机远控模式背后是 desktop host，句柄 shellUrl 指向 zcode-sandbox:// 自定义协议，
+    // 手机浏览器 iframe 加载不了，维持降级（不挂 pluginSandbox）。
+    ...(platformProxy ? {} : { pluginSandbox: webGenUiSandbox }),
     // Web 端无法打开系统目录选择框
     selectDirectory: () => Promise.resolve(null),
     // Web 端无法打开系统文件选择框
