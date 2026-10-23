@@ -886,3 +886,13 @@ exceptions:
       - packages/ui/src/settings/DynamicWorkflowModeSetting.tsx
       - packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts
     reason: Admitted upstream files edited only to let the user's dynamic workflow mode choice always win and keep the settings row visible; adopting packages/shared/src and packages/ui/src needs a separate module boundary refactor.
+  - id: web-form-cron-scheduler-unmanaged
+    rule: unmanaged-new-file
+    paths:
+      - packages/services/src/session/webCronScheduler.ts
+    reason: Web-form automation trigger loop lives in the existing services session directory next to AutomationRepo; adopting the whole directory would drag upstream legacy files into cycle/disable rules, which needs a separate module boundary refactor.
+  - id: web-gen-ui-sandbox-host-unmanaged
+    rule: unmanaged-new-file
+    paths:
+      - packages/server/src/genUiWebSandbox.ts
+    reason: Web Gen UI sandbox host is the server-side counterpart of the desktop plugin sandbox host; adopting packages/server/src would pull upstream source-server cycles into the managed baseline, which needs a separate module boundary refactor.
