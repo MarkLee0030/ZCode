@@ -1,4 +1,167 @@
 {
   "version": 1,
-  "violations": []
+  "violations": [
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/lib/conversationTelemetryParityStateE2E.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "121359b6f658bf9d",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/shared/src/request-security-edition/index.ts",
+      "module": "shared",
+      "detail": "shared",
+      "message": "新文件落在未受管模块 shared；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "14a2d992391de6cd",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/request-security-edition/parity.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "2180a74bf816417c",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "apps/zcode-cli/packages/adapters/src/model/request-security-edition/recovery.ts",
+      "module": "zcode-cli",
+      "detail": "zcode-cli",
+      "message": "新文件落在未受管模块 zcode-cli；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "2d6d0fd68752cdd2",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/shared/src/request-security-edition/verification-policy.ts",
+      "module": "shared",
+      "detail": "shared",
+      "message": "新文件落在未受管模块 shared；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "326740a4428d3d42",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/request-security-edition/index.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "40d7871801868182",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/v4/telemetry/conversationTelemetryParityE2E.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "574f6ac2ce24b7bb",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "apps/zcode-cli/packages/adapters/src/model/request-security-edition/index.ts",
+      "module": "zcode-cli",
+      "detail": "zcode-cli",
+      "message": "新文件落在未受管模块 zcode-cli；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "5773782d8c6f9108",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/shared/src/request-security-edition/policy.ts",
+      "module": "shared",
+      "detail": "shared",
+      "message": "新文件落在未受管模块 shared；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "730a17c71672ae9b",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/request-security-edition/claim.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "891fb84c538938d8",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/request-security-edition/messages.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "8cf34a63af8d87f1",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/lib/conversationTelemetryParityScenarioDefinitions.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "a1df62aadd48404e",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "apps/zcode-cli/packages/telemetry/src/request-security-edition/index.ts",
+      "module": "zcode-cli",
+      "detail": "zcode-cli",
+      "message": "新文件落在未受管模块 zcode-cli；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "a29d11657df837ae",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/desktop/src/shared/armsBrowserInit.ts",
+      "module": "desktop",
+      "detail": "desktop",
+      "message": "新文件落在未受管模块 desktop；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "afed9872c6f6d9e2",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/desktop/src/renderer/src/armsBrowserBootstrap.ts",
+      "module": "desktop",
+      "detail": "desktop",
+      "message": "新文件落在未受管模块 desktop；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "b00f6c888ae0645d",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/lib/conversationTelemetryLegacyParityE2E.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "b6387dd1ffe3fa62",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/desktop/src/main/request-security-edition/index.ts",
+      "module": "desktop",
+      "detail": "desktop",
+      "message": "新文件落在未受管模块 desktop；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "bf45eae7dbb26f0d",
+      "global": false
+    },
+    {
+      "rule": "unmanaged-new-file",
+      "file": "packages/ui/src/request-security-edition/errors.ts",
+      "module": "ui",
+      "detail": "ui",
+      "message": "新文件落在未受管模块 ui；请放入 managed 模块，或用 pnpm architecture:adopt <id> --root <dir> 为它所在目录登记模块",
+      "fingerprint": "e49931e786d78b58",
+      "global": false
+    }
+  ]
 }
