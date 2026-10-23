@@ -1,9 +1,14 @@
-import { createLocalServices, getAppConfigDir, startWebCronScheduler } from "@zcode/services/node";
+import {
+  createServerHostServices,
+  createTopicResourcePeers,
+  getAppConfigDir,
+  startWebCronScheduler,
+} from "@zcode/services/node";
 import {
   materializeBundledZCodeBuiltinProviderConfig,
   readBundledZCodeBuiltinProviderConfig,
 } from "./bundledZCodeBuiltinProviderConfig.js";
-import { createHttpServer } from "./http.js";
+import { createHttpServer, resolveHttpServerId } from "./http.js";
 
 async function main(): Promise<void> {
   const zcodeBuiltinProviderConfigFilePath = await materializeBundledZCodeBuiltinProviderConfig({
@@ -18,16 +23,26 @@ async function main(): Promise<void> {
   // automations 只能建不能跑。调度循环在本进程内补上触发；manual「立即运行」的
   // 直发钩子经闭路引用注入（hook 只会来自启动后的 RPC，届时 scheduler 必已赋值）。
   let webCronScheduler: ReturnType<typeof startWebCronScheduler> | undefined;
-  const services = createLocalServices({
-    zcodeBuiltinProviderConfigFilePath,
-    providerProvisioningTargetEnabled: Boolean(authToken),
-    onAutomationManualRunRequested: (params) => webCronScheduler?.dispatchManualRun(params),
-  });
-  // 必须在 createLocalServices 之后启动：services 装配失败时进程能自然退出，
+  const topicResourcePeers = createTopicResourcePeers();
+  const serverId = resolveHttpServerId();
+  const { services, workspaceIdentityMapper, migrationFailedPathCount } =
+    await createServerHostServices({
+      topicResourceRelayChannel: (request) => topicResourcePeers.getChannel(request),
+      sourceServerId: serverId,
+      zcodeBuiltinProviderConfigFilePath,
+      providerProvisioningTargetEnabled: Boolean(authToken),
+      onAutomationManualRunRequested: (params) => webCronScheduler?.dispatchManualRun(params),
+    });
+  // 必须在 createServerHostServices 之后启动：services 装配失败时进程能自然退出，
   // 而不是留下一个只剩调度循环的不死进程反复派发失败。
   webCronScheduler = startWebCronScheduler({ services });
 
   createHttpServer(services, port, {
+    serverId,
+    workspaceIdentityMapper,
+    migrationFailedPathCount,
+    virtualProjects: true,
+    topicResourcePeers,
     ...(host ? { host } : {}),
     ...(staticRoot ? { staticRoot, spaFallback: true } : {}),
     ...(authToken ? { authToken, authRequired: true } : {}),
